@@ -66,6 +66,18 @@ function isQuestionVisibleInGrid(question, progress) {
   return matchesMode && matchesSidebarFilter(question, progress);
 }
 
+function keepCurrentChipVisible(grid, chip) {
+  const scrollContainer = isMobileLayout() ? document.getElementById("sidebar") : grid;
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const chipRect = chip.getBoundingClientRect();
+  const offsetTop = chipRect.top - containerRect.top + scrollContainer.scrollTop;
+  const targetScrollTop = Math.max(
+    0,
+    offsetTop - (scrollContainer.clientHeight - chipRect.height) / 2,
+  );
+  scrollContainer.scrollTo({ top: targetScrollTop, behavior: "auto" });
+}
+
 function updateQuestionGrid() {
   const progress = loadProgress();
   const grid = document.getElementById("questionGrid");
@@ -88,7 +100,7 @@ function updateQuestionGrid() {
   const currentChip = grid.querySelector(".question-chip.current");
   if (currentChip) {
     requestAnimationFrame(() => {
-      currentChip.scrollIntoView({ block: "nearest", inline: "nearest" });
+      keepCurrentChipVisible(grid, currentChip);
     });
   }
 }
