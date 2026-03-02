@@ -1,51 +1,133 @@
-import json, re
+from __future__ import annotations
 
-IN_PATH = "Question_bank2026.pdf_by_PaddleOCR-VL-1.5.json"
-OUT_PATH = "questions.json"
-START_RE = re.compile(r"(\d{1,3})、【(单选|多选|判断)】")
+import json
+import re
+from pathlib import Path
 
-def clean(s):
-    return re.sub(r"\s+", " ", s).strip()
 
-def norm_answer(qtype, raw):
-    letters = re.findall(r"[A-D]", raw.upper())
-    if qtype == "多选":
+INPUT_PATH = Path("Question_bank2026.pdf_by_PaddleOCR-VL-1.5.json")
+OUTPUT_PATH = Path("questions.json")
+EXPECTED_QUESTION_COUNT = 280
+QUESTION_ID_RANGE = list(range(1, EXPECTED_QUESTION_COUNT + 1))
+
+QUESTION_START_RE = re.compile(r"(\d{1,3})、【(单选|多选|判断)】")
+QUESTION_HEADER_RE = re.compile(r"^\d{1,3}、【(?:单选|多选|判断)】\s*")
+ANSWER_RE = re.compile(r"答案[：:]\s*([A-D](?:\s*[、,，]\s*[A-D])*)")
+OPTION_RE = re.compile(
+    r"([A-D])[\.．]\s*(.*?)(?=\n\s*[A-D][\.．]|\n\s*答案[：:]|\Z)",
+    re.S,
+)
+
+TEXT_BLOCK_LABELS = {"text", "doc_title"}
+TRUE_FALSE_OPTIONS = {"对", "错", "正确", "错误"}
+QUESTION_TYPES = ("单选", "多选", "判断")
+SPECIAL_CASE_REPLACEMENTS = {
+    249: ("212、", "213、"),
+}
+
+
+def normalize_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def normalize_answer(question_type: str, raw_answer: str) -> str:
+    letters = re.findall(r"[A-D]", raw_answer.upper())
+    if question_type == "多选":
         return ",".join(sorted(dict.fromkeys(letters)))
-    return letters[0] if letters else clean(raw)
+    return letters[0] if letters else normalize_whitespace(raw_answer)
 
-def main():
-    pages = json.load(open(IN_PATH, encoding="utf-8"))
-    blocks = []
-    for p in pages:
-        for b in p.get("prunedResult", {}).get("parsing_res_list", []):
-            if b.get("block_label") in {"text", "doc_title"} and b.get("block_content"):
-                blocks.append(b["block_content"])
-    text = "\n\n".join(blocks)
-    starts = list(START_RE.finditer(text))
-    assert len(starts) == 280, f"Expected 280 starts, got {len(starts)}"
-    qs = []
-    for i, m in enumerate(starts):
-        qid, qtype = int(m.group(1)), m.group(2)
-        end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
-        block = text[m.start():end].strip()
-        if qid == 249:
-            block = block.replace("212、", "").replace("213、", "")
-        body = re.sub(r"^\d{1,3}、【(?:单选|多选|判断)】\s*", "", block, count=1)
-        am = re.search(r"答案[：:]\s*([A-D](?:\s*[、,，]\s*[A-D])*)", body)
-        assert am, f"No answer for Q{qid}"
-        opt_ms = list(re.finditer(r"([A-D])[\.．]\s*(.*?)(?=\n\s*[A-D][\.．]|\n\s*答案[：:]|\Z)", body, re.S))
-        first = opt_ms[0].start() if opt_ms else am.start()
-        question = clean(body[:first])
-        options = [f"{x.group(1)}. {clean(x.group(2))}" for x in opt_ms]
-        opt_plain = [clean(x.group(2)) for x in opt_ms]
-        if qtype == "单选" and len(options) == 2 and set(opt_plain) <= {"对", "错", "正确", "错误"}:
-            qtype = "判断"
-        qs.append({"id": qid, "type": qtype, "question": question, "options": options, "answer": norm_answer(qtype, am.group(1))})
-    qs.sort(key=lambda x: x["id"])
-    assert len(qs) == 280 and [q["id"] for q in qs] == list(range(1, 281))
-    json.dump(qs, open(OUT_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    dist = {t: sum(1 for q in qs if q["type"] == t) for t in ["单选", "多选", "判断"]}
-    print(f"Parsed {len(qs)} questions. Distribution: {dist}")
+
+def load_ocr_pages(path: Path) -> list[dict]:
+    with path.open(encoding="utf-8") as file:
+        return json.load(file)
+
+
+def extract_text_blocks(pages: list[dict]) -> list[str]:
+    blocks: list[str] = []
+    for page in pages:
+        parsing_results = page.get("prunedResult", {}).get("parsing_res_list", [])
+        for block in parsing_results:
+            content = block.get("block_content")
+            if block.get("block_label") in TEXT_BLOCK_LABELS and content:
+                blocks.append(content)
+    return blocks
+
+
+def apply_special_case_fixes(question_id: int, raw_block: str) -> str:
+    cleaned_block = raw_block
+    for token in SPECIAL_CASE_REPLACEMENTS.get(question_id, ()):
+        cleaned_block = cleaned_block.replace(token, "")
+    return cleaned_block
+
+
+def infer_question_type(question_type: str, option_texts: list[str]) -> str:
+    is_true_false = len(option_texts) == 2 and set(option_texts) <= TRUE_FALSE_OPTIONS
+    if question_type == "单选" and is_true_false:
+        return "判断"
+    return question_type
+
+
+def parse_question_block(question_id: int, question_type: str, raw_block: str) -> dict:
+    block = apply_special_case_fixes(question_id, raw_block.strip())
+    body = QUESTION_HEADER_RE.sub("", block, count=1)
+
+    answer_match = ANSWER_RE.search(body)
+    assert answer_match, f"No answer for Q{question_id}"
+
+    option_matches = list(OPTION_RE.finditer(body))
+    question_end = option_matches[0].start() if option_matches else answer_match.start()
+
+    option_texts = [normalize_whitespace(match.group(2)) for match in option_matches]
+    normalized_type = infer_question_type(question_type, option_texts)
+
+    return {
+        "id": question_id,
+        "type": normalized_type,
+        "question": normalize_whitespace(body[:question_end]),
+        "options": [f"{match.group(1)}. {text}" for match, text in zip(option_matches, option_texts)],
+        "answer": normalize_answer(normalized_type, answer_match.group(1)),
+    }
+
+
+def parse_questions(full_text: str) -> list[dict]:
+    starts = list(QUESTION_START_RE.finditer(full_text))
+    assert len(starts) == EXPECTED_QUESTION_COUNT, (
+        f"Expected {EXPECTED_QUESTION_COUNT} starts, got {len(starts)}"
+    )
+
+    questions: list[dict] = []
+    for index, match in enumerate(starts):
+        question_id = int(match.group(1))
+        question_type = match.group(2)
+        block_end = starts[index + 1].start() if index + 1 < len(starts) else len(full_text)
+        raw_block = full_text[match.start():block_end]
+        questions.append(parse_question_block(question_id, question_type, raw_block))
+
+    questions.sort(key=lambda question: question["id"])
+    parsed_ids = [question["id"] for question in questions]
+    assert parsed_ids == QUESTION_ID_RANGE, f"Unexpected question ids: {parsed_ids[:5]} ... {parsed_ids[-5:]}"
+    return questions
+
+
+def write_questions(path: Path, questions: list[dict]) -> None:
+    with path.open("w", encoding="utf-8") as file:
+        json.dump(questions, file, ensure_ascii=False, indent=2)
+
+
+def build_distribution(questions: list[dict]) -> dict[str, int]:
+    return {
+        question_type: sum(1 for question in questions if question["type"] == question_type)
+        for question_type in QUESTION_TYPES
+    }
+
+
+def main() -> None:
+    pages = load_ocr_pages(INPUT_PATH)
+    full_text = "\n\n".join(extract_text_blocks(pages))
+    questions = parse_questions(full_text)
+    write_questions(OUTPUT_PATH, questions)
+    print(f"Parsed {len(questions)} questions. Distribution: {build_distribution(questions)}")
+
 
 if __name__ == "__main__":
     main()
