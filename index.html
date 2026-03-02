@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 服务复训题库</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>✈ 服务复训题库</h1>
+    <div class="stats" id="stats">已答: 0 | 正确率: 0% | 错题: 0</div>
+    <div class="filter-bar">
+      <button class="filter-btn active" data-type="all">全部</button>
+      <button class="filter-btn" data-type="单选">单选</button>
+      <button class="filter-btn" data-type="多选">多选</button>
+      <button class="filter-btn" data-type="判断">判断</button>
+      <button class="filter-btn wrong-mode-btn" data-type="wrong">错题集</button>
+    </div>
+    <div class="question-card" id="questionCard">
+      <div class="question-header">
+        <span class="question-num" id="questionNum"></span>
+        <span class="question-type" id="questionType"></span>
+      </div>
+      <p class="question-text" id="questionText"></p>
+      <div class="options-container" id="optionsContainer"></div>
+      <button class="submit-btn" id="submitBtn" style="display:none">提交答案</button>
+      <div class="feedback" id="feedback"></div>
+    </div>
+    <div class="actions">
+      <button class="next-btn" id="nextBtn" style="display:none">下一题 →</button>
+      <button class="reset-btn" id="resetBtn">重置进度</button>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
