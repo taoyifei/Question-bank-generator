@@ -1,0 +1,7 @@
+*.pdf
+
+.sisyphus
+.sisyphus/*
+
+_pages
+_pages/*

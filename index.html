@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 服务复训题库</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="mobile-backdrop" id="mobileBackdrop"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div>
+          <h1>✈ 服务复训题库</h1>
+          <p class="sidebar-subtitle">按题型刷题，按状态复盘。</p>
+        </div>
+        <button class="sidebar-close" id="sidebarClose" type="button" aria-label="关闭题号导航">×</button>
+      </div>
+      <div class="sidebar-card">
+        <div class="stats-summary">
+          <div class="stat-chip">
+            <span class="stat-label">已答</span>
+            <strong class="stat-value" id="answeredStat">0/280</strong>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-label">正确率</span>
+            <strong class="stat-value" id="accuracyStat">0%</strong>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-label">错题</span>
+            <strong class="stat-value" id="wrongStat">0</strong>
+          </div>
+        </div>
+        <div class="progress-block">
+          <div class="progress-row">
+            <span>完成进度</span>
+            <strong id="completionStat">0%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill completion" id="completionBar"></div>
+          </div>
+        </div>
+        <div class="progress-block">
+          <div class="progress-row">
+            <span>答题表现</span>
+            <strong id="performanceStat">0%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill accuracy" id="accuracyBar"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-card">
+        <div class="sidebar-title-row">
+          <h2>题号导航</h2>
+          <span class="sidebar-hint">点击跳题 / 复盘状态</span>
+        </div>
+        <form class="sidebar-search" id="sidebarSearchForm">
+          <input
+            class="sidebar-search-input"
+            id="sidebarSearchInput"
+            type="number"
+            min="1"
+            max="280"
+            inputmode="numeric"
+            placeholder="输入题号"
+          >
+          <button class="sidebar-search-btn" type="submit">跳转</button>
+        </form>
+        <div class="sidebar-filter-bar">
+          <button class="sidebar-filter-btn active" data-sidebar-filter="all">全部</button>
+          <button class="sidebar-filter-btn" data-sidebar-filter="unanswered">未做</button>
+          <button class="sidebar-filter-btn" data-sidebar-filter="wrong">错题</button>
+        </div>
+        <div class="legend legend-inline">
+          <span class="legend-item"><span class="legend-dot current"></span>当前</span>
+          <span class="legend-item"><span class="legend-dot correct"></span>做对</span>
+          <span class="legend-item"><span class="legend-dot wrong"></span>做错</span>
+          <span class="legend-item"><span class="legend-dot unanswered"></span>未做</span>
+        </div>
+        <div class="question-grid" id="questionGrid"></div>
+        <div class="question-grid-empty" id="questionGridEmpty">当前导航筛选下暂无题号。</div>
+      </div>
+      <div class="sidebar-card sidebar-danger-zone">
+        <div class="danger-copy">
+          <h2>进度管理</h2>
+          <p>重置会清空本地答题记录和错题集。</p>
+        </div>
+        <button class="reset-btn" id="resetBtn">重置进度</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="mobile-toolbar">
+        <button class="mobile-nav-toggle" id="mobileNavToggle" type="button">题号导航</button>
+        <div class="mobile-toolbar-title">服务复训题库</div>
+      </div>
+      <div class="stats" id="stats">已答: 0 | 正确率: 0% | 错题: 0</div>
+      <div class="filter-bar">
+        <button class="filter-btn active" data-type="all">全部</button>
+        <button class="filter-btn" data-type="单选">单选</button>
+        <button class="filter-btn" data-type="多选">多选</button>
+        <button class="filter-btn" data-type="判断">判断</button>
+        <button class="filter-btn wrong-mode-btn" data-type="wrong">错题集</button>
+      </div>
+      <div class="question-card" id="questionCard">
+        <div class="question-header">
+          <span class="question-num" id="questionNum"></span>
+          <span class="question-type" id="questionType"></span>
+        </div>
+        <p class="question-text" id="questionText"></p>
+        <div class="options-container" id="optionsContainer"></div>
+        <button class="submit-btn" id="submitBtn" style="display:none">提交答案</button>
+        <div class="feedback" id="feedback"></div>
+      </div>
+      <div class="actions">
+        <button class="next-btn" id="nextBtn" style="display:none">下一题 →</button>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
