@@ -96,12 +96,19 @@
         <div class="mobile-toolbar-title">服务复训题库</div>
       </div>
       <div class="stats" id="stats">已答: 0 | 正确率: 0% | 错题: 0</div>
-      <div class="filter-bar">
-        <button class="filter-btn active" data-type="all">全部</button>
-        <button class="filter-btn" data-type="单选">单选</button>
-        <button class="filter-btn" data-type="多选">多选</button>
-        <button class="filter-btn" data-type="判断">判断</button>
-        <button class="filter-btn wrong-mode-btn" data-type="wrong">错题集</button>
+      <div class="control-panel">
+        <div class="filter-bar">
+          <button class="filter-btn active" data-type="all">全部</button>
+          <button class="filter-btn" data-type="单选">单选</button>
+          <button class="filter-btn" data-type="多选">多选</button>
+          <button class="filter-btn" data-type="判断">判断</button>
+          <button class="filter-btn wrong-mode-btn" data-type="wrong">错题集</button>
+        </div>
+        <div class="question-mode-bar">
+          <span class="question-mode-label">出题模式</span>
+          <button class="question-mode-btn active" data-question-mode="random" type="button">随机</button>
+          <button class="question-mode-btn" data-question-mode="sequential" type="button">顺序</button>
+        </div>
       </div>
       <div class="question-card" id="questionCard">
         <div class="question-header">

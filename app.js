@@ -1,4 +1,4 @@
-let questions = [], current = null, mode = "all", sidebarFilter = "all", answered = false;
+let questions = [], current = null, mode = "all", sidebarFilter = "all", questionMode = "random", answered = false;
 const STORAGE_KEY = "quiz_progress";
 const TOTAL_QUESTIONS = 280;
 const MOBILE_BREAKPOINT = 920;
@@ -66,6 +66,18 @@ function isQuestionVisibleInGrid(question, progress) {
   return matchesMode && matchesSidebarFilter(question, progress);
 }
 
+function keepCurrentChipVisible(grid, chip) {
+  const scrollContainer = isMobileLayout() ? document.getElementById("sidebar") : grid;
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const chipRect = chip.getBoundingClientRect();
+  const offsetTop = chipRect.top - containerRect.top + scrollContainer.scrollTop;
+  const targetScrollTop = Math.max(
+    0,
+    offsetTop - (scrollContainer.clientHeight - chipRect.height) / 2,
+  );
+  scrollContainer.scrollTo({ top: targetScrollTop, behavior: "auto" });
+}
+
 function updateQuestionGrid() {
   const progress = loadProgress();
   const grid = document.getElementById("questionGrid");
@@ -88,7 +100,7 @@ function updateQuestionGrid() {
   const currentChip = grid.querySelector(".question-chip.current");
   if (currentChip) {
     requestAnimationFrame(() => {
-      currentChip.scrollIntoView({ block: "nearest", inline: "nearest" });
+      keepCurrentChipVisible(grid, currentChip);
     });
   }
 }
@@ -115,6 +127,13 @@ function getPool() {
   return questions.filter(q => q.type === mode);
 }
 
+function getNextSequentialQuestion(pool) {
+  if (!current) return pool[0];
+  const currentIndex = pool.findIndex(question => question.id === current.id);
+  if (currentIndex === -1 || currentIndex === pool.length - 1) return pool[0];
+  return pool[currentIndex + 1];
+}
+
 function getEmptyStateMessage() {
   if (mode === "wrong") return "太棒了，目前没有错题。";
   if (mode === "单选" || mode === "多选" || mode === "判断") return `当前没有可用的${mode}题。`;
@@ -136,7 +155,9 @@ function showQuestion(questionId = null) {
   const requestedQuestion = questionId === null ? null : getQuestionById(questionId);
   current = requestedQuestion && pool.some(question => question.id === requestedQuestion.id)
     ? requestedQuestion
-    : pool[Math.floor(Math.random() * pool.length)];
+    : questionMode === "sequential"
+      ? getNextSequentialQuestion(pool)
+      : pool[Math.floor(Math.random() * pool.length)];
   document.getElementById("questionNum").textContent = `第${current.id}题`;
   document.getElementById("questionType").textContent = current.type;
   document.getElementById("questionText").textContent = current.question;
@@ -194,6 +215,13 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
     btn.classList.add("active");
     mode = btn.dataset.type;
     showQuestion();
+  });
+});
+document.querySelectorAll(".question-mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".question-mode-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    questionMode = btn.dataset.questionMode;
   });
 });
 document.querySelectorAll(".sidebar-filter-btn").forEach(btn => {
