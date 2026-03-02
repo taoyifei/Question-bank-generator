@@ -167,6 +167,18 @@ document.getElementById("questionGrid").addEventListener("click", event => {
   if (!button) return;
   showQuestion(Number(button.dataset.questionId));
 });
+document.getElementById("sidebarSearchForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const input = document.getElementById("sidebarSearchInput");
+  const questionId = Number(input.value);
+  if (!Number.isInteger(questionId) || questionId < 1 || questionId > TOTAL_QUESTIONS) {
+    input.focus();
+    input.select();
+    return;
+  }
+  showQuestion(questionId);
+  input.value = "";
+});
 document.getElementById("submitBtn").addEventListener("click", checkAnswer);
 document.getElementById("nextBtn").addEventListener("click", showQuestion);
 document.getElementById("resetBtn").addEventListener("click", () => {

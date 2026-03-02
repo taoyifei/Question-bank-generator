@@ -24,6 +24,18 @@
           <h2>题号导航</h2>
           <span class="sidebar-hint">点击跳题</span>
         </div>
+        <form class="sidebar-search" id="sidebarSearchForm">
+          <input
+            class="sidebar-search-input"
+            id="sidebarSearchInput"
+            type="number"
+            min="1"
+            max="280"
+            inputmode="numeric"
+            placeholder="输入题号"
+          >
+          <button class="sidebar-search-btn" type="submit">跳转</button>
+        </form>
         <div class="sidebar-filter-bar">
           <button class="sidebar-filter-btn active" data-sidebar-filter="all">全部</button>
           <button class="sidebar-filter-btn" data-sidebar-filter="unanswered">未做</button>
