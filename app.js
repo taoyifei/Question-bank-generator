@@ -1,6 +1,7 @@
 let questions = [], current = null, mode = "all", sidebarFilter = "all", answered = false;
 const STORAGE_KEY = "quiz_progress";
 const TOTAL_QUESTIONS = 280;
+const MOBILE_BREAKPOINT = 920;
 
 function loadProgress() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { answers: {}, wrongIds: [] }; }
@@ -10,22 +11,42 @@ function saveProgress(p) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch {}
 }
 
+function isMobileLayout() {
+  return window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+function openSidebar() {
+  document.body.classList.add("sidebar-open");
+}
+
+function closeSidebar() {
+  document.body.classList.remove("sidebar-open");
+}
+
+function applyCardState(state) {
+  const card = document.getElementById("questionCard");
+  card.classList.remove("state-correct", "state-wrong", "state-neutral");
+  void card.offsetWidth;
+  card.classList.add(`state-${state}`);
+}
+
 function updateStats() {
   const p = loadProgress(), total = Object.keys(p.answers).length;
   const correct = Object.values(p.answers).filter(a => a.correct).length;
   const rate = total ? Math.round(correct / total * 100) : 0;
+  const completion = Math.round(total / TOTAL_QUESTIONS * 100);
   document.getElementById("stats").textContent = `已答: ${total}/${TOTAL_QUESTIONS} | 正确率: ${rate}% | 错题: ${p.wrongIds.length}`;
+  document.getElementById("answeredStat").textContent = `${total}/${TOTAL_QUESTIONS}`;
+  document.getElementById("accuracyStat").textContent = `${rate}%`;
+  document.getElementById("wrongStat").textContent = String(p.wrongIds.length);
+  document.getElementById("completionStat").textContent = `${completion}%`;
+  document.getElementById("performanceStat").textContent = `${rate}%`;
+  document.getElementById("completionBar").style.width = `${completion}%`;
+  document.getElementById("accuracyBar").style.width = `${rate}%`;
 }
 
 function getQuestionById(questionId) {
   return questions.find(question => question.id === questionId) || null;
-}
-
-function isQuestionInCurrentMode(question) {
-  const p = loadProgress();
-  if (mode === "all") return true;
-  if (mode === "wrong") return p.wrongIds.includes(question.id);
-  return question.type === mode;
 }
 
 function matchesSidebarFilter(question, progress) {
@@ -36,6 +57,15 @@ function matchesSidebarFilter(question, progress) {
   return true;
 }
 
+function isQuestionVisibleInGrid(question, progress) {
+  const matchesMode = mode === "all"
+    ? true
+    : mode === "wrong"
+      ? progress.wrongIds.includes(question.id)
+      : question.type === mode;
+  return matchesMode && matchesSidebarFilter(question, progress);
+}
+
 function updateQuestionGrid() {
   const progress = loadProgress();
   const grid = document.getElementById("questionGrid");
@@ -43,16 +73,18 @@ function updateQuestionGrid() {
     grid.innerHTML = "";
     return;
   }
+  let visibleCount = 0;
   grid.innerHTML = questions.map(question => {
     const answerState = progress.answers[question.id];
     let statusClass = "unanswered";
     if (answerState) statusClass = answerState.correct ? "correct" : "wrong";
     const currentClass = current?.id === question.id ? " current" : "";
-    const isVisible = matchesSidebarFilter(question, progress) || current?.id === question.id;
+    const isVisible = isQuestionVisibleInGrid(question, progress) || current?.id === question.id;
+    if (isVisible) visibleCount += 1;
     const hiddenClass = isVisible ? "" : " hidden";
-    const mutedClass = isQuestionInCurrentMode(question) ? "" : " muted";
-    return `<button class="question-chip ${statusClass}${currentClass}${mutedClass}${hiddenClass}" data-question-id="${question.id}">${question.id}</button>`;
+    return `<button class="question-chip ${statusClass}${currentClass}${hiddenClass}" data-question-id="${question.id}">${question.id}</button>`;
   }).join("");
+  document.getElementById("questionGridEmpty").style.display = visibleCount ? "none" : "block";
   const currentChip = grid.querySelector(".question-chip.current");
   if (currentChip) {
     requestAnimationFrame(() => {
@@ -62,6 +94,7 @@ function updateQuestionGrid() {
 }
 
 function renderMessage(message, className = "empty-msg") {
+  applyCardState("neutral");
   document.getElementById("questionNum").textContent = "";
   document.getElementById("questionType").textContent = "";
   document.getElementById("questionText").textContent = "";
@@ -82,15 +115,22 @@ function getPool() {
   return questions.filter(q => q.type === mode);
 }
 
+function getEmptyStateMessage() {
+  if (mode === "wrong") return "太棒了，目前没有错题。";
+  if (mode === "单选" || mode === "多选" || mode === "判断") return `当前没有可用的${mode}题。`;
+  return "当前筛选下暂无题目。";
+}
+
 function showQuestion(questionId = null) {
   answered = false;
   const pool = getPool();
+  applyCardState("neutral");
   const fb = document.getElementById("feedback");
   fb.className = "feedback"; fb.textContent = "";
   document.getElementById("submitBtn").style.display = "none";
   document.getElementById("nextBtn").style.display = "none";
   if (!pool.length) {
-    renderMessage("暂无题目");
+    renderMessage(getEmptyStateMessage(), "empty-msg success-msg");
     return;
   }
   const requestedQuestion = questionId === null ? null : getQuestionById(questionId);
@@ -116,6 +156,7 @@ function showQuestion(questionId = null) {
     });
   }
   updateQuestionGrid();
+  if (isMobileLayout()) closeSidebar();
 }
 
 function checkAnswer() {
@@ -129,6 +170,7 @@ function checkAnswer() {
   const fb = document.getElementById("feedback");
   fb.className = "feedback " + (isCorrect ? "correct" : "wrong");
   fb.textContent = isCorrect ? "✓ 回答正确！" : `✗ 正确答案是 ${correct}`;
+  applyCardState(isCorrect ? "correct" : "wrong");
   document.querySelectorAll(".option-label").forEach(label => {
     label.classList.add("disabled");
     const letter = label.dataset.letter;
@@ -179,6 +221,9 @@ document.getElementById("sidebarSearchForm").addEventListener("submit", event =>
   showQuestion(questionId);
   input.value = "";
 });
+document.getElementById("mobileNavToggle").addEventListener("click", openSidebar);
+document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
+document.getElementById("mobileBackdrop").addEventListener("click", closeSidebar);
 document.getElementById("submitBtn").addEventListener("click", checkAnswer);
 document.getElementById("nextBtn").addEventListener("click", showQuestion);
 document.getElementById("resetBtn").addEventListener("click", () => {
@@ -187,6 +232,12 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     updateStats();
     showQuestion();
   }
+});
+window.addEventListener("keydown", event => {
+  if (event.key === "Escape") closeSidebar();
+});
+window.addEventListener("resize", () => {
+  if (!isMobileLayout()) closeSidebar();
 });
 
 fetch("questions.json").then(r => r.json()).then(data => {
