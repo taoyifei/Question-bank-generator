@@ -1,4 +1,4 @@
-let questions = [], current = null, mode = "all", answered = false;
+let questions = [], current = null, mode = "all", sidebarFilter = "all", answered = false;
 const STORAGE_KEY = "quiz_progress";
 const TOTAL_QUESTIONS = 280;
 
@@ -9,11 +9,56 @@ function loadProgress() {
 function saveProgress(p) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch {}
 }
+
 function updateStats() {
   const p = loadProgress(), total = Object.keys(p.answers).length;
   const correct = Object.values(p.answers).filter(a => a.correct).length;
   const rate = total ? Math.round(correct / total * 100) : 0;
   document.getElementById("stats").textContent = `已答: ${total}/${TOTAL_QUESTIONS} | 正确率: ${rate}% | 错题: ${p.wrongIds.length}`;
+}
+
+function getQuestionById(questionId) {
+  return questions.find(question => question.id === questionId) || null;
+}
+
+function isQuestionInCurrentMode(question) {
+  const p = loadProgress();
+  if (mode === "all") return true;
+  if (mode === "wrong") return p.wrongIds.includes(question.id);
+  return question.type === mode;
+}
+
+function matchesSidebarFilter(question, progress) {
+  const answerState = progress.answers[question.id];
+  if (sidebarFilter === "all") return true;
+  if (sidebarFilter === "unanswered") return !answerState;
+  if (sidebarFilter === "wrong") return progress.wrongIds.includes(question.id);
+  return true;
+}
+
+function updateQuestionGrid() {
+  const progress = loadProgress();
+  const grid = document.getElementById("questionGrid");
+  if (!questions.length) {
+    grid.innerHTML = "";
+    return;
+  }
+  grid.innerHTML = questions.map(question => {
+    const answerState = progress.answers[question.id];
+    let statusClass = "unanswered";
+    if (answerState) statusClass = answerState.correct ? "correct" : "wrong";
+    const currentClass = current?.id === question.id ? " current" : "";
+    const isVisible = matchesSidebarFilter(question, progress) || current?.id === question.id;
+    const hiddenClass = isVisible ? "" : " hidden";
+    const mutedClass = isQuestionInCurrentMode(question) ? "" : " muted";
+    return `<button class="question-chip ${statusClass}${currentClass}${mutedClass}${hiddenClass}" data-question-id="${question.id}">${question.id}</button>`;
+  }).join("");
+  const currentChip = grid.querySelector(".question-chip.current");
+  if (currentChip) {
+    requestAnimationFrame(() => {
+      currentChip.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+  }
 }
 
 function renderMessage(message, className = "empty-msg") {
@@ -26,6 +71,8 @@ function renderMessage(message, className = "empty-msg") {
   const fb = document.getElementById("feedback");
   fb.className = "feedback";
   fb.textContent = "";
+  current = null;
+  updateQuestionGrid();
 }
 
 function getPool() {
@@ -35,7 +82,7 @@ function getPool() {
   return questions.filter(q => q.type === mode);
 }
 
-function showQuestion() {
+function showQuestion(questionId = null) {
   answered = false;
   const pool = getPool();
   const fb = document.getElementById("feedback");
@@ -46,7 +93,10 @@ function showQuestion() {
     renderMessage("暂无题目");
     return;
   }
-  current = pool[Math.floor(Math.random() * pool.length)];
+  const requestedQuestion = questionId === null ? null : getQuestionById(questionId);
+  current = requestedQuestion && pool.some(question => question.id === requestedQuestion.id)
+    ? requestedQuestion
+    : pool[Math.floor(Math.random() * pool.length)];
   document.getElementById("questionNum").textContent = `第${current.id}题`;
   document.getElementById("questionType").textContent = current.type;
   document.getElementById("questionText").textContent = current.question;
@@ -65,6 +115,7 @@ function showQuestion() {
       r.addEventListener("change", () => { if (!answered) checkAnswer(); });
     });
   }
+  updateQuestionGrid();
 }
 
 function checkAnswer() {
@@ -92,6 +143,7 @@ function checkAnswer() {
   else if (!p.wrongIds.includes(current.id)) p.wrongIds.push(current.id);
   saveProgress(p);
   updateStats();
+  updateQuestionGrid();
 }
 
 document.querySelectorAll(".filter-btn").forEach(btn => {
@@ -101,6 +153,19 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
     mode = btn.dataset.type;
     showQuestion();
   });
+});
+document.querySelectorAll(".sidebar-filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".sidebar-filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    sidebarFilter = btn.dataset.sidebarFilter;
+    updateQuestionGrid();
+  });
+});
+document.getElementById("questionGrid").addEventListener("click", event => {
+  const button = event.target.closest(".question-chip");
+  if (!button) return;
+  showQuestion(Number(button.dataset.questionId));
 });
 document.getElementById("submitBtn").addEventListener("click", checkAnswer);
 document.getElementById("nextBtn").addEventListener("click", showQuestion);
@@ -115,6 +180,7 @@ document.getElementById("resetBtn").addEventListener("click", () => {
 fetch("questions.json").then(r => r.json()).then(data => {
   questions = data;
   updateStats();
+  updateQuestionGrid();
   showQuestion();
 }).catch(err => {
   console.error(err);

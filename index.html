@@ -8,29 +8,53 @@
 </head>
 <body>
   <div class="container">
-    <h1>✈ 服务复训题库</h1>
-    <div class="stats" id="stats">已答: 0 | 正确率: 0% | 错题: 0</div>
-    <div class="filter-bar">
-      <button class="filter-btn active" data-type="all">全部</button>
-      <button class="filter-btn" data-type="单选">单选</button>
-      <button class="filter-btn" data-type="多选">多选</button>
-      <button class="filter-btn" data-type="判断">判断</button>
-      <button class="filter-btn wrong-mode-btn" data-type="wrong">错题集</button>
-    </div>
-    <div class="question-card" id="questionCard">
-      <div class="question-header">
-        <span class="question-num" id="questionNum"></span>
-        <span class="question-type" id="questionType"></span>
+    <aside class="sidebar">
+      <div class="sidebar-card">
+        <h1>✈ 服务复训题库</h1>
+        <div class="stats" id="stats">已答: 0 | 正确率: 0% | 错题: 0</div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot current"></span>当前</span>
+          <span class="legend-item"><span class="legend-dot correct"></span>做对</span>
+          <span class="legend-item"><span class="legend-dot wrong"></span>做错</span>
+          <span class="legend-item"><span class="legend-dot unanswered"></span>未做</span>
+        </div>
       </div>
-      <p class="question-text" id="questionText"></p>
-      <div class="options-container" id="optionsContainer"></div>
-      <button class="submit-btn" id="submitBtn" style="display:none">提交答案</button>
-      <div class="feedback" id="feedback"></div>
-    </div>
-    <div class="actions">
-      <button class="next-btn" id="nextBtn" style="display:none">下一题 →</button>
-      <button class="reset-btn" id="resetBtn">重置进度</button>
-    </div>
+      <div class="sidebar-card">
+        <div class="sidebar-title-row">
+          <h2>题号导航</h2>
+          <span class="sidebar-hint">点击跳题</span>
+        </div>
+        <div class="sidebar-filter-bar">
+          <button class="sidebar-filter-btn active" data-sidebar-filter="all">全部</button>
+          <button class="sidebar-filter-btn" data-sidebar-filter="unanswered">未做</button>
+          <button class="sidebar-filter-btn" data-sidebar-filter="wrong">错题</button>
+        </div>
+        <div class="question-grid" id="questionGrid"></div>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div class="filter-bar">
+        <button class="filter-btn active" data-type="all">全部</button>
+        <button class="filter-btn" data-type="单选">单选</button>
+        <button class="filter-btn" data-type="多选">多选</button>
+        <button class="filter-btn" data-type="判断">判断</button>
+        <button class="filter-btn wrong-mode-btn" data-type="wrong">错题集</button>
+      </div>
+      <div class="question-card" id="questionCard">
+        <div class="question-header">
+          <span class="question-num" id="questionNum"></span>
+          <span class="question-type" id="questionType"></span>
+        </div>
+        <p class="question-text" id="questionText"></p>
+        <div class="options-container" id="optionsContainer"></div>
+        <button class="submit-btn" id="submitBtn" style="display:none">提交答案</button>
+        <div class="feedback" id="feedback"></div>
+      </div>
+      <div class="actions">
+        <button class="next-btn" id="nextBtn" style="display:none">下一题 →</button>
+        <button class="reset-btn" id="resetBtn">重置进度</button>
+      </div>
+    </main>
   </div>
   <script src="app.js"></script>
 </body>
