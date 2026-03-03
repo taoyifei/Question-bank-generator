@@ -127,6 +127,16 @@ function getPool() {
   return questions.filter(q => q.type === mode);
 }
 
+function getRandomQuestion(pool) {
+  const progress = loadProgress();
+  const unanswered = pool.filter(question => !progress.answers[question.id]);
+  const basePool = unanswered.length ? unanswered : pool;
+  const candidates = basePool.length > 1 && current
+    ? basePool.filter(question => question.id !== current.id)
+    : basePool;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 function getNextSequentialQuestion(pool) {
   if (!current) return pool[0];
   const currentIndex = pool.findIndex(question => question.id === current.id);
@@ -157,7 +167,7 @@ function showQuestion(questionId = null) {
     ? requestedQuestion
     : questionMode === "sequential"
       ? getNextSequentialQuestion(pool)
-      : pool[Math.floor(Math.random() * pool.length)];
+      : getRandomQuestion(pool);
   document.getElementById("questionNum").textContent = `第${current.id}题`;
   document.getElementById("questionType").textContent = current.type;
   document.getElementById("questionText").textContent = current.question;
