@@ -3,9 +3,30 @@ const STORAGE_KEY = "quiz_progress";
 const TOTAL_QUESTIONS = 280;
 const MOBILE_BREAKPOINT = 920;
 
+function normalizeProgress(rawProgress) {
+  const safeAnswers = {};
+  for (const [questionId, answer] of Object.entries(rawProgress?.answers || {})) {
+    const attempts = Math.max(0, Number(answer?.attempts) || 0);
+    const correct = Boolean(answer?.correct);
+    const correctAttempts = Math.max(
+      0,
+      Number.isFinite(Number(answer?.correctAttempts))
+        ? Number(answer.correctAttempts)
+        : (correct ? 1 : 0),
+    );
+    safeAnswers[questionId] = { correct, attempts, correctAttempts };
+  }
+
+  const wrongIds = [...new Set((rawProgress?.wrongIds || [])
+    .map(Number)
+    .filter(id => Number.isInteger(id) && id >= 1 && id <= TOTAL_QUESTIONS))];
+
+  return { answers: safeAnswers, wrongIds };
+}
+
 function loadProgress() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { answers: {}, wrongIds: [] }; }
-  catch { return { answers: {}, wrongIds: [] }; }
+  try { return normalizeProgress(JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}); }
+  catch { return normalizeProgress({}); }
 }
 function saveProgress(p) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch {}
@@ -31,12 +52,14 @@ function applyCardState(state) {
 }
 
 function updateStats() {
-  const p = loadProgress(), total = Object.keys(p.answers).length;
-  const correct = Object.values(p.answers).filter(a => a.correct).length;
-  const rate = total ? Math.round(correct / total * 100) : 0;
-  const completion = Math.round(total / TOTAL_QUESTIONS * 100);
-  document.getElementById("stats").textContent = `已答: ${total}/${TOTAL_QUESTIONS} | 正确率: ${rate}% | 错题: ${p.wrongIds.length}`;
-  document.getElementById("answeredStat").textContent = `${total}/${TOTAL_QUESTIONS}`;
+  const p = loadProgress();
+  const answeredCount = Object.keys(p.answers).length;
+  const totalAttempts = Object.values(p.answers).reduce((sum, answer) => sum + answer.attempts, 0);
+  const correctAttempts = Object.values(p.answers).reduce((sum, answer) => sum + answer.correctAttempts, 0);
+  const rate = totalAttempts ? Math.round(correctAttempts / totalAttempts * 100) : 0;
+  const completion = Math.round(answeredCount / TOTAL_QUESTIONS * 100);
+  document.getElementById("stats").textContent = `已答: ${answeredCount}/${TOTAL_QUESTIONS} | 正确率: ${rate}% | 错题: ${p.wrongIds.length}`;
+  document.getElementById("answeredStat").textContent = `${answeredCount}/${TOTAL_QUESTIONS}`;
   document.getElementById("accuracyStat").textContent = `${rate}%`;
   document.getElementById("wrongStat").textContent = String(p.wrongIds.length);
   document.getElementById("completionStat").textContent = `${completion}%`;
@@ -47,6 +70,17 @@ function updateStats() {
 
 function getQuestionById(questionId) {
   return questions.find(question => question.id === questionId) || null;
+}
+
+function setActiveButtons(selector, activeValue, dataKey) {
+  document.querySelectorAll(selector).forEach(button => {
+    button.classList.toggle("active", button.dataset[dataKey] === activeValue);
+  });
+}
+
+function setQuestionFilter(nextMode) {
+  mode = nextMode;
+  setActiveButtons(".filter-btn", nextMode, "type");
 }
 
 function matchesSidebarFilter(question, progress) {
@@ -144,13 +178,21 @@ function getNextSequentialQuestion(pool) {
   return pool[currentIndex + 1];
 }
 
+function selectQuestion(pool, requestedQuestion = null, options = {}) {
+  const { preserveCurrent = false, resetSequence = false } = options;
+  if (requestedQuestion) return requestedQuestion;
+  if (preserveCurrent && current && pool.some(question => question.id === current.id)) return current;
+  if (questionMode === "sequential") return resetSequence ? pool[0] : getNextSequentialQuestion(pool);
+  return getRandomQuestion(pool);
+}
+
 function getEmptyStateMessage() {
   if (mode === "wrong") return "太棒了，目前没有错题。";
   if (mode === "单选" || mode === "多选" || mode === "判断") return `当前没有可用的${mode}题。`;
   return "当前筛选下暂无题目。";
 }
 
-function showQuestion(questionId = null) {
+function showQuestion(questionId = null, options = {}) {
   answered = false;
   const pool = getPool();
   applyCardState("neutral");
@@ -163,11 +205,7 @@ function showQuestion(questionId = null) {
     return;
   }
   const requestedQuestion = questionId === null ? null : getQuestionById(questionId);
-  current = requestedQuestion && pool.some(question => question.id === requestedQuestion.id)
-    ? requestedQuestion
-    : questionMode === "sequential"
-      ? getNextSequentialQuestion(pool)
-      : getRandomQuestion(pool);
+  current = selectQuestion(pool, requestedQuestion, options);
   document.getElementById("questionNum").textContent = `第${current.id}题`;
   document.getElementById("questionType").textContent = current.type;
   document.getElementById("questionText").textContent = current.question;
@@ -211,7 +249,11 @@ function checkAnswer() {
   document.getElementById("submitBtn").style.display = "none";
   document.getElementById("nextBtn").style.display = "inline-block";
   const p = loadProgress();
-  p.answers[current.id] = { correct: isCorrect, attempts: (p.answers[current.id]?.attempts || 0) + 1 };
+  p.answers[current.id] = {
+    correct: isCorrect,
+    attempts: (p.answers[current.id]?.attempts || 0) + 1,
+    correctAttempts: (p.answers[current.id]?.correctAttempts || 0) + (isCorrect ? 1 : 0),
+  };
   if (isCorrect) p.wrongIds = p.wrongIds.filter(id => id !== current.id);
   else if (!p.wrongIds.includes(current.id)) p.wrongIds.push(current.id);
   saveProgress(p);
@@ -221,10 +263,8 @@ function checkAnswer() {
 
 document.querySelectorAll(".filter-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    mode = btn.dataset.type;
-    showQuestion();
+    setQuestionFilter(btn.dataset.type);
+    showQuestion(null, { preserveCurrent: true, resetSequence: true });
   });
 });
 document.querySelectorAll(".question-mode-btn").forEach(btn => {
@@ -256,14 +296,15 @@ document.getElementById("sidebarSearchForm").addEventListener("submit", event =>
     input.select();
     return;
   }
-  showQuestion(questionId);
+  setQuestionFilter("all");
+  showQuestion(questionId, { resetSequence: true });
   input.value = "";
 });
 document.getElementById("mobileNavToggle").addEventListener("click", openSidebar);
 document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
 document.getElementById("mobileBackdrop").addEventListener("click", closeSidebar);
 document.getElementById("submitBtn").addEventListener("click", checkAnswer);
-document.getElementById("nextBtn").addEventListener("click", showQuestion);
+document.getElementById("nextBtn").addEventListener("click", () => showQuestion());
 document.getElementById("resetBtn").addEventListener("click", () => {
   if (confirm("确定要重置所有进度吗？")) {
     localStorage.removeItem(STORAGE_KEY);
