@@ -1,6 +1,6 @@
 let questions = [], current = null, mode = "all", sidebarFilter = "all", questionMode = "random", answered = false;
 const STORAGE_KEY = "quiz_progress";
-const TOTAL_QUESTIONS = 280;
+const TOTAL_QUESTIONS = 300;
 const MOBILE_BREAKPOINT = 920;
 
 function normalizeProgress(rawProgress) {
